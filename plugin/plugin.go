@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -455,7 +456,19 @@ func (b *ORMBuilder) generateOrmable(g *protogen.GeneratedFile, message *protoge
 			}
 		}
 
-		g.P(name, ` `, field.TypeName, b.renderGormTag(field))
+		tags := []string{}
+		gormTags := b.renderGormTag(field)
+		if len(gormTags) > 0 {
+			tags = append(tags, gormTags)
+		}
+		if opts := getMessageOptions(message); opts != nil && opts.Json {
+			tags = append(tags, b.renderJsonTag(name))
+		}
+		fieldTag := ""
+		if len(tags) > 0 {
+			fieldTag = fmt.Sprintf("`%s`", strings.Join(tags, " "))
+		}
+		g.P(name, ` `, field.TypeName, fieldTag)
 	}
 
 	g.P(`}`)
@@ -1283,8 +1296,21 @@ func (b *ORMBuilder) renderGormTag(field *Field) string {
 	if finalTag == "" {
 		return ""
 	} else {
-		return fmt.Sprintf("`%s`", finalTag)
+		return finalTag
 	}
+}
+
+var matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
+var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
+
+func toSnakeCase(str string) string {
+	snake := matchFirstCap.ReplaceAllString(str, "${1}_${2}")
+	snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
+	return strings.ToLower(snake)
+}
+
+func (b *ORMBuilder) renderJsonTag(fieldName string) string {
+	return fmt.Sprintf(`json:"%s,omitempty"`, toSnakeCase(fieldName))
 }
 
 func (b *ORMBuilder) setupOrderedHasMany(message *protogen.Message, g *protogen.GeneratedFile) {
