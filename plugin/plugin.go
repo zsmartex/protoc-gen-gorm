@@ -34,6 +34,11 @@ var (
 )
 
 var (
+	matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
+	matchAllCap   = regexp.MustCompile("([a-z0-9])([A-Z])")
+)
+
+var (
 	gormImport         = "gorm.io/gorm"
 	tkgormImport       = "github.com/infobloxopen/atlas-app-toolkit/gorm"
 	uuidImport         = "github.com/satori/go.uuid"
@@ -456,19 +461,8 @@ func (b *ORMBuilder) generateOrmable(g *protogen.GeneratedFile, message *protoge
 			}
 		}
 
-		tags := []string{}
-		gormTags := b.renderGormTag(field)
-		if len(gormTags) > 0 {
-			tags = append(tags, gormTags)
-		}
-		if opts := getMessageOptions(message); opts != nil && opts.Json {
-			tags = append(tags, b.renderJsonTag(name))
-		}
-		fieldTag := ""
-		if len(tags) > 0 {
-			fieldTag = fmt.Sprintf("`%s`", strings.Join(tags, " "))
-		}
-		g.P(name, ` `, field.TypeName, fieldTag)
+		opts := getMessageOptions(message)
+		g.P(name, ` `, field.TypeName, b.renderTag(field, name, opts.Json))
 	}
 
 	g.P(`}`)
@@ -1160,7 +1154,7 @@ func parseGormAssosiationTags(field *gormopts.GormFieldOptions) fieldAssociation
 	}
 }
 
-func (b *ORMBuilder) renderGormTag(field *Field) string {
+func (b *ORMBuilder) renderTag(field *Field, fieldName string, json bool) string {
 	var gormRes, atlasRes string
 	tag := field.GetTag()
 	if tag == nil {
@@ -1285,32 +1279,27 @@ func (b *ORMBuilder) renderGormTag(field *Field) string {
 		gormRes += fmt.Sprintf("append:%s;", strconv.FormatBool(append))
 	}
 
-	var gormTag, atlasTag string
+	var gormTag, atlasTag, jsonTag string
 	if gormRes != "" {
 		gormTag = fmt.Sprintf("gorm:\"%s\"", strings.TrimRight(gormRes, ";"))
 	}
 	if atlasRes != "" {
 		atlasTag = fmt.Sprintf("atlas:\"%s\"", strings.TrimRight(atlasRes, ";"))
 	}
+
+	if json {
+		snake := matchFirstCap.ReplaceAllString(fieldName, "${1}_${2}")
+		snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
+		jsonTag = fmt.Sprintf(`json:"%s,omitempty"`, strings.ToLower(snake))
+	}
+
 	finalTag := strings.TrimSpace(strings.Join([]string{gormTag, atlasTag}, " "))
+	finalTag = strings.TrimSpace(strings.Join([]string{finalTag, jsonTag}, " "))
 	if finalTag == "" {
 		return ""
 	} else {
-		return finalTag
+		return fmt.Sprintf("`%s`", finalTag)
 	}
-}
-
-var matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
-var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
-
-func toSnakeCase(str string) string {
-	snake := matchFirstCap.ReplaceAllString(str, "${1}_${2}")
-	snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
-	return strings.ToLower(snake)
-}
-
-func (b *ORMBuilder) renderJsonTag(fieldName string) string {
-	return fmt.Sprintf(`json:"%s,omitempty"`, toSnakeCase(fieldName))
 }
 
 func (b *ORMBuilder) setupOrderedHasMany(message *protogen.Message, g *protogen.GeneratedFile) {
