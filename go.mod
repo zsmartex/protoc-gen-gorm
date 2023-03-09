@@ -7,12 +7,9 @@ require (
 	github.com/jackc/pgtype v1.11.0 // indirect
 	github.com/jinzhu/inflection v1.0.0
 	github.com/lib/pq v1.10.2
-	github.com/satori/go.uuid v1.2.0
-	go.opencensus.io v0.23.0
 	google.golang.org/genproto v0.0.0-20220722212130-b98a9ff5e252
-	google.golang.org/grpc v1.48.0
+	google.golang.org/grpc v1.48.0 // indirect
 	google.golang.org/protobuf v1.28.0
-	gorm.io/datatypes v1.0.6
 	gorm.io/gorm v1.23.2
 )
 

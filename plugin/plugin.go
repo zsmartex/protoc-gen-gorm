@@ -437,7 +437,6 @@ func (b *ORMBuilder) generateOrmable(g *protogen.GeneratedFile, message *protoge
 	for name := range ormable.Fields {
 		names = append(names, name)
 	}
-	sort.Strings(names)
 
 	for _, name := range names {
 		field := ormable.Fields[name]
@@ -934,7 +933,9 @@ func (b *ORMBuilder) parseBasicFields(msg *protogen.Message, g *protogen.Generat
 				fieldType = "string"
 				gormOptions.Tag = tagWithType(tag, "time")
 			} else {
-				continue
+				typePackage = gtypesImport
+				fieldType = "*" + rawType
+				gormOptions.Tag = tagWithType(tag, "jsonb")
 			}
 		}
 
