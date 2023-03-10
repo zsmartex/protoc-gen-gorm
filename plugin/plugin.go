@@ -60,6 +60,7 @@ var (
 	stdTimeImport      = "time"
 	encodingJsonImport = "encoding/json"
 	bigintImport       = "math/big"
+	decimalImport      = "github.com/shopspring/decimal"
 )
 
 var builtinTypes = map[string]struct{}{
@@ -103,6 +104,7 @@ const (
 	protoTypeInet      = "InetValue"
 	protoTimeOnly      = "TimeOnly"
 	protoTypeBigInt    = "BigInt"
+	protoTypeDecimal   = "Decimal"
 )
 
 // DB Engine Enum
@@ -455,6 +457,15 @@ func (b *ORMBuilder) generateOrmable(g *protogen.GeneratedFile, message *protoge
 			s := generateImport("BigInt", bigintImport, g)
 			if field.TypeName[0] == '*' {
 				field.TypeName = "*" + s
+			} else {
+				field.TypeName = s
+			}
+		}
+
+		if len(sp) == 2 && sp[1] == "Decimal" {
+			s := generateImport("Decimal", decimalImport, g)
+			if field.TypeName[0] == '*' {
+				field.TypeName = s
 			} else {
 				field.TypeName = s
 			}
@@ -870,6 +881,12 @@ func (b *ORMBuilder) parseBasicFields(msg *protogen.Message, g *protogen.Generat
 				if b.dbEngine == ENGINE_POSTGRES {
 					gormOptions.Tag = tagWithType(tag, "numeric")
 				}
+			} else if rawType == protoTypeDecimal {
+				typePackage = bigintImport
+				fieldType = generateImport("Decimal", decimalImport, g)
+				if b.dbEngine == ENGINE_POSTGRES {
+					gormOptions.Tag = tagWithType(tag, "numeric")
+				}
 			} else if rawType == protoTypeUUID {
 				typePackage = uuidImport
 				fieldType = generateImport("UUID", uuidImport, g)
@@ -1003,6 +1020,8 @@ func (b *ORMBuilder) addIncludedField(ormable *OrmableType, field *gormopts.Extr
 			rawType = generateImport("Time", stdTimeImport, g)
 		} else if rawType == "BigInt" {
 			rawType = generateImport("Int", bigintImport, g)
+		} else if rawType == "Decimal" {
+			rawType = generateImport("Int", decimalImport, g)
 		} else if rawType == "UUID" {
 			rawType = generateImport("UUID", uuidImport, g)
 		} else if field.GetType() == "Jsonb" {
@@ -1426,6 +1445,14 @@ func (b *ORMBuilder) generateFieldConversion(message *protogen.Message, field *p
 				g.P(`}`)
 			} else {
 				g.P(`to.`, fieldName, ` = &`, generateImport("BigInt", gtypesImport, g), `{Value: m.`, fieldName, `.String()}`)
+			}
+		} else if fieldType == protoTypeDecimal { // Singular Decimal type ----
+			if toORM {
+				g.P(`if m.`, fieldName, ` != nil {`)
+				g.P(`to.`, fieldName, ` = m.`, fieldName, `.ToDecimal()`)
+				g.P(`}`)
+			} else {
+				g.P(`to.`, fieldName, ` = &`, generateImport("Decimal", gtypesImport, g), `{Value: m.`, fieldName, `.CoefficientInt64(), Scale: m.`, fieldName, `.Exponent()}`)
 			}
 		} else if fieldType == protoTypeUUIDValue { // Singular UUIDValue type ----
 			if toORM {
@@ -1877,6 +1904,9 @@ func (b *ORMBuilder) guessZeroValue(typeName string, g *protogen.GeneratedFile) 
 	}
 	if strings.Contains(typeName, "bigint") {
 		return generateImport("Nil", bigintImport, g)
+	}
+	if strings.Contains(typeName, "decimal") {
+		return generateImport("Nil", decimalImport, g)
 	}
 	if strings.Contains(typeName, "[]byte") {
 		return `nil`
@@ -2555,7 +2585,7 @@ func (b *ORMBuilder) generateApplyFieldMask(message *protogen.Message, g *protog
 
 func isSpecialType(typeName string) bool {
 	switch typeName {
-	case protoTypeJSON, protoTypeBigInt, protoTypeUUID, protoTypeUUIDValue, protoTypeResource, protoTypeInet, protoTimeOnly:
+	case protoTypeJSON, protoTypeBigInt, protoTypeDecimal, protoTypeUUID, protoTypeUUIDValue, protoTypeResource, protoTypeInet, protoTimeOnly:
 		return true
 	default:
 		return false

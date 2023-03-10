@@ -26,3 +26,8 @@ message TimeOnly {
 message BigInt {
   string value = 1;
 }
+
+message Decimal {
+  int64 value = 1;
+  int32 scale = 2;
+}
