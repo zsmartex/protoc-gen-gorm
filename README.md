@@ -51,8 +51,8 @@ go mod tidy
 
 ### Installation
 
-To use this tool, install it from code with `make install`, `go install github.com/infobloxopen/protoc-gen-gorm@latest` directly,
-or `go get github.com/infobloxopen/protoc-gen-gorm`.
+To use this tool, install it from code with `make install`, `go install github.com/zsmartex/protoc-gen-gorm@latest` directly,
+or `go get github.com/zsmartex/protoc-gen-gorm`.
 
 ### Usage
 
