@@ -6,8 +6,8 @@ package user;
 
 import "google/protobuf/timestamp.proto";
 import "atlas/resource/v1/resource.proto";
-import "options/gorm.proto";
-import "types/types.proto";
+import "gorm/options/gorm.proto";
+import "gorm/types/types.proto";
 
 option go_package = "github.com/zsmartex/protoc-gen-gorm/example/user;user";
 

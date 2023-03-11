@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package postgres.arrays;
 
-import "options/gorm.proto";
+import "gorm/options/gorm.proto";
 
 option go_package = "github.com/zsmartex/protoc-gen-gorm/example/postgres_arrays;postgres_arrays";
 

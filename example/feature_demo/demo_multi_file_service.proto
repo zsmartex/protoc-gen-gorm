@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package example;
-import "options/gorm.proto";
+import "gorm/options/gorm.proto";
 import "atlas/query/v1/collection_operators.proto";
 import "feature_demo/demo_multi_file.proto";
 

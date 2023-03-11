@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package example;
 import "google/protobuf/empty.proto";
-import "options/gorm.proto";
+import "gorm/options/gorm.proto";
 import "google/protobuf/field_mask.proto";
 import "atlas/query/v1/collection_operators.proto";
 
