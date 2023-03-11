@@ -1,4 +1,4 @@
-package types
+package gormpb
 
 import (
 	"fmt"
@@ -7,8 +7,8 @@ import (
 
 func TestParseTime(t *testing.T) {
 	cases := []struct {
-		value         uint32
-		str           string
+		value       uint32
+		str         string
 		expectError bool
 	}{
 		{0, "00:00:00", false},

@@ -1,4 +1,4 @@
-package types
+package gormpb
 
 import (
 	"errors"
@@ -13,14 +13,14 @@ const (
 	secondsInMinute uint32 = 60
 )
 
-var validators = []struct{
-	regexp *regexp.Regexp
+var validators = []struct {
+	regexp        *regexp.Regexp
 	timeExtractor func(string) string
 }{
 	{
 		regexp: regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$`),
 		timeExtractor: func(s string) string {
-			return s[11 : 19]
+			return s[11:19]
 		},
 	},
 	{
@@ -29,7 +29,6 @@ var validators = []struct{
 			return s
 		},
 	},
-
 }
 
 func ParseTime(value uint32) (string, error) {
@@ -66,13 +65,19 @@ func TimeOnlyByString(s string) (*TimeOnly, error) {
 	return getTimeOnly(t)
 }
 
-func getTimeOnly(t string) (*TimeOnly, error)   {
+func getTimeOnly(t string) (*TimeOnly, error) {
 	h, _ := strconv.Atoi(t[0:2])
-	if h > 23 || h < 0 {return nil, errors.New(fmt.Sprintf("Hours value outside expected range: %d", h))}
+	if h > 23 || h < 0 {
+		return nil, errors.New(fmt.Sprintf("Hours value outside expected range: %d", h))
+	}
 	m, _ := strconv.Atoi(t[3:5])
-	if m > 59 || m < 0 {return nil, errors.New(fmt.Sprintf("Minutes value outside expected range: %d", m))}
+	if m > 59 || m < 0 {
+		return nil, errors.New(fmt.Sprintf("Minutes value outside expected range: %d", m))
+	}
 	s, _ := strconv.Atoi(t[6:8])
-	if s > 59 || s < 0 {return nil, errors.New(fmt.Sprintf("Seconds value outside expected range: %d", h))}
+	if s > 59 || s < 0 {
+		return nil, errors.New(fmt.Sprintf("Seconds value outside expected range: %d", h))
+	}
 	result := uint32(h)*secondsInHour + uint32(m)*secondsInMinute + uint32(s)
 	return &TimeOnly{Value: result}, nil
 }

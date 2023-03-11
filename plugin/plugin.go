@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/jinzhu/inflection"
-	gormopts "github.com/zsmartex/protoc-gen-gorm/options"
+	"github.com/zsmartex/protoc-gen-gorm/gormpb"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -197,7 +197,7 @@ func NewOrmableType(originalName string, pkg string, file *protogen.File) *Ormab
 }
 
 type Field struct {
-	*gormopts.GormFieldOptions
+	*gormpb.GormFieldOptions
 	ParentGoType         string
 	TypeName             string
 	Type                 *OrmableType
@@ -504,7 +504,7 @@ func (b *ORMBuilder) parseAssociations(msg *protogen.Message, g *protogen.Genera
 
 		if b.isOrmable(fieldType) {
 			if fieldOpts == nil {
-				fieldOpts = &gormopts.GormFieldOptions{}
+				fieldOpts = &gormpb.GormFieldOptions{}
 			}
 			assocOrmable := b.getOrmable(fieldType)
 
@@ -579,12 +579,12 @@ func (b *ORMBuilder) getOrmable(typeName string) *OrmableType {
 	return r
 }
 
-func (b *ORMBuilder) parseManyToMany(msg *protogen.Message, ormable *OrmableType, fieldName string, fieldType string, assoc *OrmableType, opts *gormopts.GormFieldOptions) {
+func (b *ORMBuilder) parseManyToMany(msg *protogen.Message, ormable *OrmableType, fieldName string, fieldType string, assoc *OrmableType, opts *gormpb.GormFieldOptions) {
 	typeName := camelCase(string(msg.Desc.Name()))
 	mtm := opts.GetManyToMany()
 	if mtm == nil {
-		mtm = &gormopts.ManyToManyOptions{}
-		opts.Association = &gormopts.GormFieldOptions_ManyToMany{mtm}
+		mtm = &gormpb.ManyToManyOptions{}
+		opts.Association = &gormpb.GormFieldOptions_ManyToMany{mtm}
 	}
 
 	var foreignKeyName string
@@ -635,12 +635,12 @@ func (b *ORMBuilder) parseManyToMany(msg *protogen.Message, ormable *OrmableType
 	mtm.AssociationJointableForeignkey = camelCase(jtAssocForeignKey)
 }
 
-func (b *ORMBuilder) parseHasOne(msg *protogen.Message, parent *OrmableType, fieldName string, fieldType string, child *OrmableType, opts *gormopts.GormFieldOptions) {
+func (b *ORMBuilder) parseHasOne(msg *protogen.Message, parent *OrmableType, fieldName string, fieldType string, child *OrmableType, opts *gormpb.GormFieldOptions) {
 	typeName := camelCase(string(msg.Desc.Name()))
 	hasOne := opts.GetHasOne()
 	if hasOne == nil {
-		hasOne = &gormopts.HasOneOptions{}
-		opts.Association = &gormopts.GormFieldOptions_HasOne{hasOne}
+		hasOne = &gormpb.HasOneOptions{}
+		opts.Association = &gormpb.GormFieldOptions_HasOne{hasOne}
 	}
 
 	var assocKey *Field
@@ -668,7 +668,7 @@ func (b *ORMBuilder) parseHasOne(msg *protogen.Message, parent *OrmableType, fie
 		foreignKeyType = "*" + assocKey.TypeName
 	}
 
-	foreignKey := &Field{TypeName: foreignKeyType, Package: assocKey.Package, GormFieldOptions: &gormopts.GormFieldOptions{Tag: hasOne.GetForeignkeyTag()}}
+	foreignKey := &Field{TypeName: foreignKeyType, Package: assocKey.Package, GormFieldOptions: &gormpb.GormFieldOptions{Tag: hasOne.GetForeignkeyTag()}}
 	var foreignKeyName string
 	if foreignKeyName = camelCase(hasOne.GetForeignkey()); foreignKeyName == "" {
 		if b.countHasAssociationDimension(msg, fieldType) == 1 {
@@ -697,12 +697,12 @@ func (b *ORMBuilder) parseHasOne(msg *protogen.Message, parent *OrmableType, fie
 	child.Fields[foreignKeyName].ParentOrigName = parent.OriginName
 }
 
-func (b *ORMBuilder) parseHasMany(msg *protogen.Message, parent *OrmableType, fieldName string, fieldType string, child *OrmableType, opts *gormopts.GormFieldOptions) {
+func (b *ORMBuilder) parseHasMany(msg *protogen.Message, parent *OrmableType, fieldName string, fieldType string, child *OrmableType, opts *gormpb.GormFieldOptions) {
 	typeName := camelCase(string(msg.Desc.Name()))
 	hasMany := opts.GetHasMany()
 	if hasMany == nil {
-		hasMany = &gormopts.HasManyOptions{}
-		opts.Association = &gormopts.GormFieldOptions_HasMany{hasMany}
+		hasMany = &gormpb.HasManyOptions{}
+		opts.Association = &gormpb.GormFieldOptions_HasMany{hasMany}
 	}
 	var assocKey *Field
 	var assocKeyName string
@@ -727,7 +727,7 @@ func (b *ORMBuilder) parseHasMany(msg *protogen.Message, parent *OrmableType, fi
 	} else {
 		foreignKeyType = "*" + assocKey.TypeName
 	}
-	foreignKey := &Field{TypeName: foreignKeyType, Package: assocKey.Package, GormFieldOptions: &gormopts.GormFieldOptions{Tag: hasMany.GetForeignkeyTag()}}
+	foreignKey := &Field{TypeName: foreignKeyType, Package: assocKey.Package, GormFieldOptions: &gormpb.GormFieldOptions{Tag: hasMany.GetForeignkeyTag()}}
 	var foreignKeyName string
 	if foreignKeyName = hasMany.GetForeignkey(); foreignKeyName == "" {
 		if b.countHasAssociationDimension(msg, fieldType) == 1 {
@@ -757,7 +757,7 @@ func (b *ORMBuilder) parseHasMany(msg *protogen.Message, parent *OrmableType, fi
 	var posField string
 	if posField = camelCase(hasMany.GetPositionField()); posField != "" {
 		if exField, ok := child.Fields[posField]; !ok {
-			child.Fields[posField] = &Field{TypeName: "int", GormFieldOptions: &gormopts.GormFieldOptions{Tag: hasMany.GetPositionFieldTag()}}
+			child.Fields[posField] = &Field{TypeName: "int", GormFieldOptions: &gormpb.GormFieldOptions{Tag: hasMany.GetPositionFieldTag()}}
 		} else {
 			if !strings.Contains(exField.TypeName, "int") {
 				panic(fmt.Sprintf("Cannot include %s field into %s as it already exists there with a different type.",
@@ -768,11 +768,11 @@ func (b *ORMBuilder) parseHasMany(msg *protogen.Message, parent *OrmableType, fi
 	}
 }
 
-func (b *ORMBuilder) parseBelongsTo(msg *protogen.Message, child *OrmableType, fieldName string, fieldType string, parent *OrmableType, opts *gormopts.GormFieldOptions) {
+func (b *ORMBuilder) parseBelongsTo(msg *protogen.Message, child *OrmableType, fieldName string, fieldType string, parent *OrmableType, opts *gormpb.GormFieldOptions) {
 	belongsTo := opts.GetBelongsTo()
 	if belongsTo == nil {
-		belongsTo = &gormopts.BelongsToOptions{}
-		opts.Association = &gormopts.GormFieldOptions_BelongsTo{belongsTo}
+		belongsTo = &gormpb.BelongsToOptions{}
+		opts.Association = &gormpb.GormFieldOptions_BelongsTo{belongsTo}
 	}
 	var assocKey *Field
 	var assocKeyName string
@@ -796,7 +796,7 @@ func (b *ORMBuilder) parseBelongsTo(msg *protogen.Message, child *OrmableType, f
 	} else {
 		foreignKeyType = "*" + assocKey.TypeName
 	}
-	foreignKey := &Field{TypeName: foreignKeyType, Package: assocKey.Package, GormFieldOptions: &gormopts.GormFieldOptions{Tag: belongsTo.GetForeignkeyTag()}}
+	foreignKey := &Field{TypeName: foreignKeyType, Package: assocKey.Package, GormFieldOptions: &gormpb.GormFieldOptions{Tag: belongsTo.GetForeignkeyTag()}}
 	var foreignKeyName string
 	if foreignKeyName = camelCase(belongsTo.GetForeignkey()); foreignKeyName == "" {
 		if b.countBelongsToAssociationDimension(msg, fieldType) == 1 {
@@ -832,7 +832,7 @@ func (b *ORMBuilder) parseBasicFields(msg *protogen.Message, g *protogen.Generat
 		options := fd.Options().(*descriptorpb.FieldOptions)
 		gormOptions := getFieldOptions(options)
 		if gormOptions == nil {
-			gormOptions = &gormopts.GormFieldOptions{}
+			gormOptions = &gormpb.GormFieldOptions{}
 		}
 		if gormOptions.GetDrop() {
 			continue
@@ -1000,7 +1000,7 @@ func (b *ORMBuilder) parseBasicFields(msg *protogen.Message, g *protogen.Generat
 	}
 }
 
-func (b *ORMBuilder) addIncludedField(ormable *OrmableType, field *gormopts.ExtraField, g *protogen.GeneratedFile) {
+func (b *ORMBuilder) addIncludedField(ormable *OrmableType, field *gormpb.ExtraField, g *protogen.GeneratedFile) {
 	fieldName := camelCase(field.GetName())
 	isPtr := strings.HasPrefix(field.GetType(), "*")
 	rawType := strings.TrimPrefix(field.GetType(), "*")
@@ -1036,20 +1036,20 @@ func (b *ORMBuilder) addIncludedField(ormable *OrmableType, field *gormopts.Extr
 	if isPtr {
 		rawType = fmt.Sprintf("*%s", rawType)
 	}
-	ormable.Fields[fieldName] = &Field{TypeName: rawType, Package: typePackage, GormFieldOptions: &gormopts.GormFieldOptions{Tag: field.GetTag()}}
+	ormable.Fields[fieldName] = &Field{TypeName: rawType, Package: typePackage, GormFieldOptions: &gormpb.GormFieldOptions{Tag: field.GetTag()}}
 }
 
-func getFieldOptions(options *descriptorpb.FieldOptions) *gormopts.GormFieldOptions {
+func getFieldOptions(options *descriptorpb.FieldOptions) *gormpb.GormFieldOptions {
 	if options == nil {
 		return nil
 	}
 
-	v := proto.GetExtension(options, gormopts.E_Field)
+	v := proto.GetExtension(options, gormpb.E_Field)
 	if v == nil {
 		return nil
 	}
 
-	opts, ok := v.(*gormopts.GormFieldOptions)
+	opts, ok := v.(*gormpb.GormFieldOptions)
 	if !ok {
 		return nil
 	}
@@ -1058,17 +1058,17 @@ func getFieldOptions(options *descriptorpb.FieldOptions) *gormopts.GormFieldOpti
 }
 
 // retrieves the GormMessageOptions from a message
-func getMessageOptions(message *protogen.Message) *gormopts.GormMessageOptions {
+func getMessageOptions(message *protogen.Message) *gormpb.GormMessageOptions {
 	options := message.Desc.Options()
 	if options == nil {
 		return nil
 	}
-	v := proto.GetExtension(options, gormopts.E_Opts)
+	v := proto.GetExtension(options, gormpb.E_Opts)
 	if v == nil {
 		return nil
 	}
 
-	opts, ok := v.(*gormopts.GormMessageOptions)
+	opts, ok := v.(*gormpb.GormMessageOptions)
 	if !ok {
 		return nil
 	}
@@ -1080,7 +1080,7 @@ func isOrmable(message *protogen.Message) bool {
 	desc := message.Desc
 	options := desc.Options()
 
-	m, ok := proto.GetExtension(options, gormopts.E_Opts).(*gormopts.GormMessageOptions)
+	m, ok := proto.GetExtension(options, gormpb.E_Opts).(*gormpb.GormMessageOptions)
 	if !ok || m == nil {
 		return false
 	}
@@ -1097,9 +1097,9 @@ func (b *ORMBuilder) IsAbleToMakePQArray(fieldType string) bool {
 	}
 }
 
-func tagWithType(tag *gormopts.GormTag, typename string) *gormopts.GormTag {
+func tagWithType(tag *gormpb.GormTag, typename string) *gormpb.GormTag {
 	if tag == nil {
-		tag = &gormopts.GormTag{}
+		tag = &gormpb.GormTag{}
 	}
 
 	tag.Type = typename
@@ -1159,7 +1159,7 @@ type fieldAssociationInfo interface {
 	GetPreload() bool
 }
 
-func parseGormAssosiationTags(field *gormopts.GormFieldOptions) fieldAssociationInfo {
+func parseGormAssosiationTags(field *gormpb.GormFieldOptions) fieldAssociationInfo {
 	switch {
 	case field.GetHasOne() != nil:
 		return field.GetHasOne()
@@ -1178,7 +1178,7 @@ func (b *ORMBuilder) renderTag(field *Field, fieldName string, json bool) string
 	var gormRes, atlasRes string
 	tag := field.GetTag()
 	if tag == nil {
-		tag = &gormopts.GormTag{}
+		tag = &gormpb.GormTag{}
 	}
 
 	if len(tag.Column) > 0 {
@@ -3127,18 +3127,18 @@ func (b *ORMBuilder) followsListConventions(inType *protogen.Message, outType *p
 	return true, outTypeName
 }
 
-func getServiceOptions(service *protogen.Service) *gormopts.AutoServerOptions {
+func getServiceOptions(service *protogen.Service) *gormpb.AutoServerOptions {
 	options := service.Desc.Options().(*descriptorpb.ServiceOptions)
 	if options == nil {
 		return nil
 	}
 
-	v := proto.GetExtension(options, gormopts.E_Server)
+	v := proto.GetExtension(options, gormpb.E_Server)
 	if v == nil {
 		return nil
 	}
 
-	opts, ok := v.(*gormopts.AutoServerOptions)
+	opts, ok := v.(*gormpb.AutoServerOptions)
 	if !ok {
 		return nil
 	}
@@ -3146,18 +3146,18 @@ func getServiceOptions(service *protogen.Service) *gormopts.AutoServerOptions {
 	return opts
 }
 
-func getMethodOptions(method *protogen.Method) *gormopts.MethodOptions {
+func getMethodOptions(method *protogen.Method) *gormpb.MethodOptions {
 	options := method.Desc.Options().(*descriptorpb.MethodOptions)
 	if options == nil {
 		return nil
 	}
 
-	v := proto.GetExtension(options, gormopts.E_Method)
+	v := proto.GetExtension(options, gormpb.E_Method)
 	if v == nil {
 		return nil
 	}
 
-	opts, ok := v.(*gormopts.MethodOptions)
+	opts, ok := v.(*gormpb.MethodOptions)
 	if !ok {
 		return nil
 	}

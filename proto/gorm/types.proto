@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package gorm.types;
+package gorm;
 
-option go_package = "github.com/zsmartex/protoc-gen-gorm/types;types";
+option go_package = "github.com/zsmartex/protoc-gen-gorm/gormpb;gormpb";
 
 message UUIDValue {
   string value = 1;

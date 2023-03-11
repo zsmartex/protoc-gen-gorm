@@ -5,8 +5,7 @@ generate: gormpb install
 gormpb:
 	# Generate the standalone module and update/lock dependencies.
 	cd proto && buf generate
-	find proto/gorm/options -type f -name "*.pb.go" -exec mv {} options \;
-	find proto/gorm/types -type f -name "*.pb.go" -exec mv {} types \;
+	find proto -type f -name "*.pb.go" -exec mv {} gormpb \;
 
 i: install
 install:

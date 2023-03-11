@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package gorm.options;
+package gorm;
 
-option go_package = "github.com/zsmartex/protoc-gen-gorm/options;options";
+option go_package = "github.com/zsmartex/protoc-gen-gorm/gormpb;gormpb";
 
 import "google/protobuf/descriptor.proto";
 
