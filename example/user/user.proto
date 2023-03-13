@@ -18,7 +18,7 @@ message User {
         json: true
     };
     atlas.rpc.Identifier id = 1 [(gorm.field).tag = {type: "uuid" primary_key: true}];
-    google.protobuf.Timestamp created_at = 2;
+    google.protobuf.Timestamp created_at = 2 [(gorm.field).nilable = true];
     google.protobuf.Timestamp updated_at = 3;
 
     google.protobuf.Timestamp birthday = 4;

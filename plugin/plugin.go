@@ -911,6 +911,9 @@ func (b *ORMBuilder) parseBasicFields(msg *protogen.Message, g *protogen.Generat
 			} else if rawType == protoTypeTimestamp {
 				typePackage = stdTimeImport
 				fieldType = "*" + generateImport("Time", stdTimeImport, g)
+				if nilable {
+					fieldType = generateImport("Time", nullImport, g)
+				}
 			} else if rawType == protoTypeDuration {
 				typePackage = stdTimeImport
 				fieldType = "*" + generateImport("Duration", stdTimeImport, g)
@@ -931,52 +934,25 @@ func (b *ORMBuilder) parseBasicFields(msg *protogen.Message, g *protogen.Generat
 				if field.Desc.IsList() {
 					ttype = "array"
 				}
-				if !nilable {
-					switch ttype {
-					case "uuid", "text", "char", "array", "cidr", "inet", "macaddr":
-						fieldType = "*string"
-					case "smallint":
-						fieldType = "*int32"
-					case "integer", "bigint":
-						fieldType = "*int64"
-					case "serial", "bigserial":
-						fieldType = "*uint64"
-					case "smallserial":
-						fieldType = "*uint32"
-					case "numeric":
-						fieldType = "*float64"
-					case "jsonb", "bytea":
-						fieldType = "[]byte"
-					case "":
-						fieldType = "interface{}" // we do not know the type yet (if it association we will fix the type later)
-					default:
-						panic("unknown tag type of atlas.rpc.Identifier")
-					}
-				} else {
-					switch ttype {
-					case "uuid", "text", "char", "array", "cidr", "inet", "macaddr":
-						fieldType = "*string"
-					case "smallint":
-						typePackage = nullImport
-						fieldType = generateImport("Int32", nullImport, g)
-					case "integer", "bigint":
-						typePackage = nullImport
-						fieldType = generateImport("Int64", nullImport, g)
-					case "serial", "bigserial":
-						typePackage = nullImport
-						fieldType = generateImport("UInt64", nullImport, g)
-					case "smallserial":
-						typePackage = nullImport
-						fieldType = generateImport("UInt32", nullImport, g)
-					case "numeric":
-						typePackage = decimalImport
-						fieldType = generateImport("NullDecimal", decimalImport, g)
-					case "jsonb", "bytea":
-						typePackage = nullImport
-						fieldType = generateImport("Bytes", nullImport, g)
-					default:
-						panic(fmt.Sprintf("%s is unknown tag type of null", ttype))
-					}
+				switch ttype {
+				case "uuid", "text", "char", "array", "cidr", "inet", "macaddr":
+					fieldType = "*string"
+				case "smallint":
+					fieldType = "*int32"
+				case "integer", "bigint":
+					fieldType = "*int64"
+				case "serial", "bigserial":
+					fieldType = "*uint64"
+				case "smallserial":
+					fieldType = "*uint32"
+				case "numeric":
+					fieldType = "*float64"
+				case "jsonb", "bytea":
+					fieldType = "[]byte"
+				case "":
+					fieldType = "interface{}" // we do not know the type yet (if it association we will fix the type later)
+				default:
+					panic("unknown tag type of atlas.rpc.Identifier")
 				}
 			} else if rawType == protoTypeInet {
 				typePackage = gtypesImport
@@ -1009,6 +985,24 @@ func (b *ORMBuilder) parseBasicFields(msg *protogen.Message, g *protogen.Generat
 			case "uint32":
 				typePackage = nullImport
 				fieldType = generateImport("Uint32", nullImport, g)
+			case "int32":
+				typePackage = nullImport
+				fieldType = generateImport("Int32", nullImport, g)
+			case "int64":
+				typePackage = nullImport
+				fieldType = generateImport("Int64", nullImport, g)
+			case "float32":
+				typePackage = nullImport
+				fieldType = generateImport("Float32", nullImport, g)
+			case "float64":
+				typePackage = nullImport
+				fieldType = generateImport("Float64", nullImport, g)
+			case "string":
+				typePackage = nullImport
+				fieldType = generateImport("String", nullImport, g)
+			case "[]byte":
+				typePackage = nullImport
+				fieldType = generateImport("Bytes", nullImport, g)
 			}
 		}
 
@@ -1541,14 +1535,25 @@ func (b *ORMBuilder) generateFieldConversion(message *protogen.Message, field *p
 			}
 		} else if fieldType == protoTypeTimestamp { // Singular WKT Timestamp ---
 			if toORM {
-				g.P(`if m.`, fieldName, ` != nil {`)
-				g.P(`t := m.`, fieldName, `.AsTime()`)
-				g.P(`to.`, fieldName, ` = &t`)
-				g.P(`}`)
+				if ofield != nil && ofield.Nilable {
+					g.P(`t := m.`, fieldName, `.AsTime()`)
+					g.P(`to.`, fieldName, `.Scan(t)`)
+				} else {
+					g.P(`if m.`, fieldName, ` != nil {`)
+					g.P(`t := m.`, fieldName, `.AsTime()`)
+					g.P(`to.`, fieldName, ` = &t`)
+					g.P(`}`)
+				}
 			} else {
-				g.P(`if m.`, fieldName, ` != nil {`)
-				g.P(`to.`, fieldName, ` = `, generateImport("New", timestampImport, g), `(*m.`, fieldName, `)`)
-				g.P(`}`)
+				if ofield != nil && ofield.Nilable {
+					g.P(`if m.`, fieldName, `.IsValid() {`)
+					g.P(`to.`, fieldName, ` = `, generateImport("New", timestampImport, g), `(m.`, fieldName, `.Time)`)
+					g.P(`}`)
+				} else {
+					g.P(`if m.`, fieldName, ` != nil {`)
+					g.P(`to.`, fieldName, ` = `, generateImport("New", timestampImport, g), `(*m.`, fieldName, `)`)
+					g.P(`}`)
+				}
 			}
 		} else if fieldType == protoTypeDuration {
 			if toORM {
