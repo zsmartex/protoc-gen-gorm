@@ -1,0 +1,9 @@
+# https://docs.buf.build/lint-usage/
+version: v1
+name: buf.build/zsmartex/protoc-gen-gorm
+deps:
+  - buf.build/googleapis/googleapis
+  - buf.build/grpc-ecosystem/grpc-gateway
+breaking:
+  use:
+    - FILE

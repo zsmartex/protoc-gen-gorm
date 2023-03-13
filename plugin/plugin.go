@@ -61,6 +61,7 @@ var (
 	encodingJsonImport = "encoding/json"
 	bigintImport       = "math/big"
 	decimalImport      = "github.com/shopspring/decimal"
+	nullImport         = "github.com/mbahjadol/null"
 )
 
 var builtinTypes = map[string]struct{}{
@@ -204,6 +205,7 @@ type Field struct {
 	Package              string
 	ParentOrigName       string
 	FieldAssociationInfo fieldAssociationInfo
+	Nilable              bool
 }
 
 type autogenMethod struct {
@@ -432,6 +434,7 @@ func (b *ORMBuilder) generateTableNameFunctions(g *protogen.GeneratedFile, messa
 }
 
 func (b *ORMBuilder) generateOrmable(g *protogen.GeneratedFile, message *protogen.Message) {
+	opts := getMessageOptions(message)
 	ormable := b.getOrmable(message.GoIdent.GoName)
 	g.P(`type `, ormable.Name, ` struct {`)
 
@@ -464,6 +467,9 @@ func (b *ORMBuilder) generateOrmable(g *protogen.GeneratedFile, message *protoge
 
 		if len(sp) == 2 && sp[1] == "Decimal" {
 			s := generateImport("Decimal", decimalImport, g)
+			if field.Nilable {
+				s = generateImport("NullDecimal", decimalImport, g)
+			}
 			if field.TypeName[0] == '*' {
 				field.TypeName = s
 			} else {
@@ -471,7 +477,6 @@ func (b *ORMBuilder) generateOrmable(g *protogen.GeneratedFile, message *protoge
 			}
 		}
 
-		opts := getMessageOptions(message)
 		g.P(name, ` `, field.TypeName, b.renderTag(field, name, opts.Json))
 	}
 
@@ -841,6 +846,7 @@ func (b *ORMBuilder) parseBasicFields(msg *protogen.Message, g *protogen.Generat
 		tag := gormOptions.Tag
 		fieldName := camelCase(string(fd.Name()))
 		fieldType := fd.Kind().String()
+		nilable := gormOptions.Nilable
 
 		var typePackage string
 
@@ -882,8 +888,11 @@ func (b *ORMBuilder) parseBasicFields(msg *protogen.Message, g *protogen.Generat
 					gormOptions.Tag = tagWithType(tag, "numeric")
 				}
 			} else if rawType == protoTypeDecimal {
-				typePackage = bigintImport
+				typePackage = decimalImport
 				fieldType = generateImport("Decimal", decimalImport, g)
+				if nilable {
+					fieldType = generateImport("NullDecimal", decimalImport, g)
+				}
 				if b.dbEngine == ENGINE_POSTGRES {
 					gormOptions.Tag = tagWithType(tag, "numeric")
 				}
@@ -922,20 +931,52 @@ func (b *ORMBuilder) parseBasicFields(msg *protogen.Message, g *protogen.Generat
 				if field.Desc.IsList() {
 					ttype = "array"
 				}
-				switch ttype {
-				case "uuid", "text", "char", "array", "cidr", "inet", "macaddr":
-					fieldType = "*string"
-				case "smallint", "integer", "bigint", "numeric", "smallserial", "serial", "bigserial":
-					fieldType = "*int64"
-				case "jsonb", "bytea":
-					fieldType = "[]byte"
-				case "":
-					fieldType = "interface{}" // we do not know the type yet (if it association we will fix the type later)
-				default:
-					panic("unknown tag type of atlas.rpc.Identifier")
-				}
-				if tag.GetNotNull() || tag.GetPrimaryKey() {
-					fieldType = strings.TrimPrefix(fieldType, "*")
+				if !nilable {
+					switch ttype {
+					case "uuid", "text", "char", "array", "cidr", "inet", "macaddr":
+						fieldType = "*string"
+					case "smallint":
+						fieldType = "*int32"
+					case "integer", "bigint":
+						fieldType = "*int64"
+					case "serial", "bigserial":
+						fieldType = "*uint64"
+					case "smallserial":
+						fieldType = "*uint32"
+					case "numeric":
+						fieldType = "*float64"
+					case "jsonb", "bytea":
+						fieldType = "[]byte"
+					case "":
+						fieldType = "interface{}" // we do not know the type yet (if it association we will fix the type later)
+					default:
+						panic("unknown tag type of atlas.rpc.Identifier")
+					}
+				} else {
+					switch ttype {
+					case "uuid", "text", "char", "array", "cidr", "inet", "macaddr":
+						fieldType = "*string"
+					case "smallint":
+						typePackage = nullImport
+						fieldType = generateImport("Int32", nullImport, g)
+					case "integer", "bigint":
+						typePackage = nullImport
+						fieldType = generateImport("Int64", nullImport, g)
+					case "serial", "bigserial":
+						typePackage = nullImport
+						fieldType = generateImport("UInt64", nullImport, g)
+					case "smallserial":
+						typePackage = nullImport
+						fieldType = generateImport("UInt32", nullImport, g)
+					case "numeric":
+						typePackage = decimalImport
+						fieldType = generateImport("NullDecimal", decimalImport, g)
+					case "jsonb", "bytea":
+						typePackage = nullImport
+						fieldType = generateImport("Bytes", nullImport, g)
+					default:
+						panic(fmt.Sprintf("%s is unknown tag type of null", ttype))
+					}
 				}
 			} else if rawType == protoTypeInet {
 				typePackage = gtypesImport
@@ -963,11 +1004,20 @@ func (b *ORMBuilder) parseBasicFields(msg *protogen.Message, g *protogen.Generat
 			fieldType = "float64"
 		}
 
+		if nilable {
+			switch fieldType {
+			case "uint32":
+				typePackage = nullImport
+				fieldType = generateImport("Uint32", nullImport, g)
+			}
+		}
+
 		f := &Field{
 			GormFieldOptions: gormOptions,
 			ParentGoType:     "",
 			TypeName:         fieldType,
 			Package:          typePackage,
+			Nilable:          nilable,
 		}
 
 		if tName := gormOptions.GetReferenceOf(); tName != "" {
@@ -1355,9 +1405,7 @@ func (b *ORMBuilder) setupOrderedHasManyByName(message *protogen.Message, fieldN
 }
 
 // Output code that will convert a field to/from orm.
-func (b *ORMBuilder) generateFieldConversion(message *protogen.Message, field *protogen.Field,
-	toORM bool, ofield *Field, g *protogen.GeneratedFile) error {
-
+func (b *ORMBuilder) generateFieldConversion(message *protogen.Message, field *protogen.Field, toORM bool, ofield *Field, g *protogen.GeneratedFile) error {
 	fieldName := camelCase(string(field.Desc.Name()))
 	fieldType := field.Desc.Kind().String() // was GoType
 	if field.Desc.Message() != nil {
@@ -1448,11 +1496,21 @@ func (b *ORMBuilder) generateFieldConversion(message *protogen.Message, field *p
 			}
 		} else if fieldType == protoTypeDecimal { // Singular Decimal type ----
 			if toORM {
+				funcName := "ToDecimal"
+				if ofield != nil && ofield.Nilable {
+					funcName = "ToNullDecimal"
+				}
+
 				g.P(`if m.`, fieldName, ` != nil {`)
-				g.P(`to.`, fieldName, ` = m.`, fieldName, `.ToDecimal()`)
+				g.P(`to.`, fieldName, ` = m.`, fieldName, `.`, funcName, `()`)
 				g.P(`}`)
 			} else {
-				g.P(`to.`, fieldName, ` = &`, generateImport("Decimal", gtypesImport, g), `{Value: m.`, fieldName, `.CoefficientInt64(), Scale: m.`, fieldName, `.Exponent()}`)
+				funcName := "FromDecimal"
+				if ofield != nil && ofield.Nilable {
+					funcName = "FromNullDecimal"
+				}
+
+				g.P(`to.`, fieldName, ` = `, generateImport(funcName, gtypesImport, g), `(`, `m.`, fieldName, `)`)
 			}
 		} else if fieldType == protoTypeUUIDValue { // Singular UUIDValue type ----
 			if toORM {
@@ -1622,7 +1680,22 @@ func (b *ORMBuilder) generateFieldConversion(message *protogen.Message, field *p
 			g.P(`}`)
 		}
 	} else { // Singular raw ----------------------------------------------------
-		g.P(`to.`, fieldName, ` = m.`, fieldName)
+		nilable := strings.HasPrefix(ofield.TypeName, "null.")
+
+		if nilable {
+			nullTypeBuffer := strings.TrimPrefix(ofield.TypeName, "null.")
+
+			if toORM {
+				g.P(`err = to.`, fieldName, `.Scan(m.`, fieldName, `)`)
+				g.P(`if err != nil {`)
+				g.P(`return to, err`)
+				g.P(`}`)
+			} else {
+				g.P(`to.`, fieldName, `= m.`, fieldName, `.`, nullTypeBuffer)
+			}
+		} else {
+			g.P(`to.`, fieldName, ` = m.`, fieldName)
+		}
 	}
 	return nil
 }
