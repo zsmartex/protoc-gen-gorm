@@ -6,8 +6,8 @@ package user;
 
 import "google/protobuf/timestamp.proto";
 import "atlas/resource/v1/resource.proto";
-import "gorm/options/gorm.proto";
-import "gorm/types/types.proto";
+import "gorm/options.proto";
+import "gorm/types.proto";
 
 option go_package = "github.com/zsmartex/protoc-gen-gorm/example/user;user";
 
@@ -33,7 +33,8 @@ message User {
     repeated User friends = 13 [(gorm.field).many_to_many = {}];
     atlas.rpc.Identifier shipping_address_id = 14;
     atlas.rpc.Identifier external_uuid = 15 [(gorm.field).tag = {type: "uuid"}];
-    gorm.types.Decimal price = 16;
+    gorm.Decimal price = 16 [(gorm.field).nilable = true, (gorm.field).tag = { type: "numeric" }];
+    uint32 test = 17 [(gorm.field).nilable = true];
 }
 
 message Email {

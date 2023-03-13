@@ -1,6 +1,10 @@
 gen: generate
 generate: gormpb install
 
+.PHONY: example
+example:
+	buf generate --template example/user/buf.gen.yaml --path example/user
+
 .PHONY: gormpb
 gormpb:
 	# Generate the standalone module and update/lock dependencies.

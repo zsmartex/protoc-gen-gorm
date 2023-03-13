@@ -53,6 +53,7 @@ message GormFieldOptions {
         ManyToManyOptions many_to_many = 6;
     }
     string reference_of = 7;
+    bool nilable = 8; // nilable is for nil type
 }
 
 message GormTag {
